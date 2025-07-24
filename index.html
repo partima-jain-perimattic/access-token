@@ -1,82 +1,50 @@
-# main.py
-from fastapi import FastAPI, Request
-from fastapi.responses import RedirectResponse, HTMLResponse
-import httpx
-import os
-from urllib.parse import urlencode
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Instagram Login</title>
+    <script async defer crossorigin="anonymous"
+      src="https://connect.facebook.net/en_US/sdk.js"></script>
+  </head>
+  <body>
+    <h2>Login with Instagram</h2>
+    <button onclick="login()">Login with Instagram</button>
 
-app = FastAPI()
+    <script>
+      // Step 1: Load Facebook SDK
+      window.fbAsyncInit = function () {
+        FB.init({
+          appId: '1099677145467782', // Your App ID
+          cookie: true,
+          xfbml: true,
+          version: 'v19.0'
+        });
+      };
 
-# Replace with your real values
-APP_ID = os.getenv("FB_APP_ID", "YOUR_APP_ID")
-APP_SECRET = os.getenv("FB_APP_SECRET", "YOUR_APP_SECRET")
-REDIRECT_URI = os.getenv("FB_REDIRECT_URI", "http://localhost:8000/auth/callback")
-SCOPES = "instagram_basic,pages_show_list"
+      // Step 2: Login and send token to backend
+      function login() {
+        FB.login(function (response) {
+          if (response.authResponse) {
+            const accessToken = response.authResponse.accessToken;
+            console.log("Short Token: ", accessToken);
 
-@app.get("/", response_class=HTMLResponse)
-async def home():
-    auth_url = f"https://www.facebook.com/v23.0/dialog/oauth?" + urlencode({
-        "client_id": APP_ID,
-        "redirect_uri": REDIRECT_URI,
-        "scope": SCOPES,
-        "response_type": "code"
-    })
-    return f"""
-    <html>
-    <body>
-        <h2>Instagram Login Demo</h2>
-        <a href='{auth_url}'>Login with Instagram</a>
-    </body>
-    </html>
-    """
-
-@app.get("/auth/callback")
-async def auth_callback(code: str):
-    # Step 1: Exchange code for access token
-    async with httpx.AsyncClient() as client:
-        token_res = await client.get("https://graph.facebook.com/v23.0/oauth/access_token", params={
-            "client_id": APP_ID,
-            "redirect_uri": REDIRECT_URI,
-            "client_secret": APP_SECRET,
-            "code": code
-        })
-        token_data = token_res.json()
-        access_token = token_data.get("access_token")
-
-        if not access_token:
-            return {"error": "Failed to retrieve access token", "details": token_data}
-
-        # Step 2: Get user's Pages
-        pages_res = await client.get("https://graph.facebook.com/v23.0/me/accounts", params={
-            "access_token": access_token
-        })
-        pages = pages_res.json().get("data", [])
-
-        if not pages:
-            return {"error": "No pages found", "details": pages_res.json()}
-
-        # Step 3: Get Instagram Business Account ID from Page
-        page_id = pages[0]['id']
-        ig_res = await client.get(f"https://graph.facebook.com/v23.0/{page_id}", params={
-            "fields": "instagram_business_account",
-            "access_token": access_token
-        })
-        ig_account = ig_res.json().get("instagram_business_account", {})
-
-        if not ig_account:
-            return {"error": "No Instagram account connected to page", "details": ig_res.json()}
-
-        ig_id = ig_account['id']
-
-        # Step 4: Fetch Instagram Media
-        media_res = await client.get(f"https://graph.facebook.com/v23.0/{ig_id}/media", params={
-            "access_token": access_token
-        })
-        media = media_res.json().get("data", [])
-
-        return {
-            "access_token": access_token,
-            "page_id": page_id,
-            "instagram_id": ig_id,
-            "media": media
-        }
+            // Step 3: Send to FastAPI (your ngrok backend)
+            fetch('https://93066f65dbd5.ngrok-free.app/exchange_token', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ short_token: accessToken })
+            })
+              .then((res) => res.json())
+              .then((data) => {
+                console.log("Long-lived Token:", data);
+                alert("Long-lived token: " + data.access_token);
+              });
+          } else {
+            alert("Login failed.");
+          }
+        }, { scope: 'instagram_basic,pages_show_list,instagram_manage_insights,pages_read_engagement' });
+      }
+    </script>
+  </body>
+</html>
