@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Login with Facebook</title>
+</head>
+<body>
+  <h2>Login with Facebook</h2>
+  <div id="status"></div>
+  <button onclick="fbLogin()">Login with Facebook</button>
+
+  <script>
+    window.fbAsyncInit = function () {
+      FB.init({
+        appId: '1099677145467782',
+        cookie: true,
+        xfbml: false,
+        version: 'v23.0'
+      });
+
+      FB.getLoginStatus(function (response) {
+        statusChangeCallback(response);
+      });
+    };
+
+    (function (d, s, id) {
+      var js, fjs = d.getElementsByTagName(s)[0];
+      if (d.getElementById(id)) return;
+      js = d.createElement(s); js.id = id;
+      js.src = "https://connect.facebook.net/en_US/sdk.js";
+      fjs.parentNode.insertBefore(js, fjs);
+    }(document, 'script', 'facebook-jssdk'));
+
+    function statusChangeCallback(response) {
+      if (response.status === 'connected') {
+        const accessToken = response.authResponse.accessToken;
+        document.getElementById('status').innerHTML =
+          'Access Token: <code>' + accessToken + '</code>';
+
+        // Optional: send it to backend
+        fetch('/store-token', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ access_token: accessToken })
+        });
+      }
+    }
+
+    function fbLogin() {
+      FB.login(statusChangeCallback, {
+        scope: 'public_profile,email,pages_show_list,instagram_basic'
+      });
+    }
+  </script>
+</body>
+</html>
